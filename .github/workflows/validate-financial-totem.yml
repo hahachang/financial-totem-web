@@ -24,6 +24,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          test "$(git show -s --format='%ae' HEAD)" = 'financial-totem-mini@local'
           test "$(wc -c < index.html)" -ge 2000000
           for marker in \
             'id="fg-special-open"' \
