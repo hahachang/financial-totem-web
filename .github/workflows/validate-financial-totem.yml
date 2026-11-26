@@ -1,0 +1,59 @@
+name: Validate financial totem deployment
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: financial-totem-deployment
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Check required home controls
+        id: integrity
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(wc -c < index.html)" -ge 2000000
+          for marker in \
+            'id="fg-special-open"' \
+            'id="fg-valuation-open"' \
+            'id="fg-flow-open"' \
+            'id="fg-watch-toggle"' \
+            'id="fg-heatmap-toggle"' \
+            'id="fg-company-search-open"'
+          do
+            grep -Fq "$marker" index.html
+          done
+      - name: Restore previous valid deployment
+        if: steps.integrity.outcome == 'failure'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show HEAD^:index.html > /tmp/previous-index.html
+          for marker in \
+            'id="fg-special-open"' \
+            'id="fg-valuation-open"' \
+            'id="fg-flow-open"' \
+            'id="fg-watch-toggle"' \
+            'id="fg-heatmap-toggle"' \
+            'id="fg-company-search-open"'
+          do
+            grep -Fq "$marker" /tmp/previous-index.html
+          done
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git revert --no-edit "$GITHUB_SHA"
+          git push origin HEAD:main
+          echo "Rejected an incomplete financial totem deployment and restored its parent commit." >&2
+          exit 1
